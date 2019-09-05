@@ -8,3 +8,5 @@ edition = "2018"
 
 [dependencies]
 nom = "5.0.0"
+rand = "0.7.0"
+rand_xoshiro = "0.3.1"
