@@ -1,5 +1,5 @@
 #[derive(PartialEq, Clone, Debug)]
-pub enum Primitive {
+pub enum Pattern {
     Digit,
-    Loop(Box<Primitive>, u64),
+    Loop(Box<Pattern>, u64, u64),
 }

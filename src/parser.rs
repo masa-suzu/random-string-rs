@@ -1,44 +1,106 @@
-use crate::regex::Primitive;
+use crate::regex::Pattern;
 
 extern crate nom;
 use nom::{bytes::complete::tag, character::complete::digit1, IResult};
 
-pub fn parse_digits(s: &str) -> IResult<&str, Primitive> {
-    let (s, _) = parse_digit(s)?;
+#[derive(PartialEq, Clone, Debug)]
+pub enum Error {
+    UnTerminatedError(String),
+    ParseError,
+}
+
+pub fn parse(s: &str) -> Result<Pattern, Error> {
+    match nom::branch::alt((parse_loop, parse_digit))(s) {
+        Ok(("\r\n", p)) => Ok(p),
+        Ok(("\n", p)) => Ok(p),
+        Ok(("\r", p)) => Ok(p),
+        Ok(("", p)) => Ok(p),
+
+        Ok((s, _)) => Err(Error::UnTerminatedError(s.to_string())),
+        _ => Err(Error::ParseError),
+    }
+}
+
+fn parse_loop(s: &str) -> IResult<&str, Pattern> {
+    let (s, p) = parse_digit(s)?;
 
     let (s, _) = tag("{")(s)?;
-    let (s, n) = digit1(s)?;
+
+    let (s, from) = digit1(s)?;
+
+    let (s, to) = if let Ok((s, _)) = tag::<&str, &str, (&str, nom::error::ErrorKind)>(",")(s) {
+        digit1(s)?
+    } else {
+        (s, from)
+    };
+
     let (s, _) = tag("}")(s)?;
 
     Ok((
         s,
-        Primitive::Loop(Box::new(Primitive::Digit), n.parse().unwrap()),
+        Pattern::Loop(Box::new(p), from.parse().unwrap(), to.parse().unwrap()),
     ))
 }
 
-pub fn parse_digit(s: &str) -> IResult<&str, Primitive> {
+fn parse_digit(s: &str) -> IResult<&str, Pattern> {
     let (s, _) = tag("\\b")(s)?;
-    Ok((s, Primitive::Digit))
+    Ok((s, Pattern::Digit))
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::{parse_digit, parse_digits};
-    use crate::regex::Primitive;
+    use crate::parser::parse;
+    use crate::parser::Error;
+    use crate::regex::Pattern;
+
     #[test]
-    fn test_parse_digit() {
-        assert_eq!(parse_digit(r"\b"), Ok(("", Primitive::Digit)));
+    fn test_parse() {
+        assert_eq!(parse("\\b"), Ok(Pattern::Digit));
+
+        assert_eq!(
+            parse("\\b{1}"),
+            Ok(Pattern::Loop(Box::new(Pattern::Digit), 1, 1))
+        );
+        assert_eq!(
+            parse("\\b{10}"),
+            Ok(Pattern::Loop(Box::new(Pattern::Digit), 10, 10))
+        );
+        assert_eq!(
+            parse("\\b{1,1}"),
+            Ok(Pattern::Loop(Box::new(Pattern::Digit), 1, 1))
+        );
+        assert_eq!(
+            parse("\\b{7,10}"),
+            Ok(Pattern::Loop(Box::new(Pattern::Digit), 7, 10))
+        );
+
+        assert_eq!(
+            parse("\\b{1}\r\n"),
+            Ok(Pattern::Loop(Box::new(Pattern::Digit), 1, 1))
+        );
+
+        assert_eq!(
+            parse("\\b{1}\n"),
+            Ok(Pattern::Loop(Box::new(Pattern::Digit), 1, 1))
+        );
+
+        assert_eq!(
+            parse("\\b{1}\r"),
+            Ok(Pattern::Loop(Box::new(Pattern::Digit), 1, 1))
+        );
     }
 
     #[test]
-    fn test_parse_digits() {
+    fn test_parse_error() {
+        assert_eq!(parse("\\"), Err(Error::ParseError));
+        assert_eq!(parse("b"), Err(Error::ParseError));
         assert_eq!(
-            parse_digits(r"\b{1}"),
-            Ok(("", Primitive::Loop(Box::new(Primitive::Digit), 1)))
+            parse("\\b{"),
+            Err(Error::UnTerminatedError("{".to_string()))
         );
         assert_eq!(
-            parse_digits(r"\b{10}"),
-            Ok(("", Primitive::Loop(Box::new(Primitive::Digit), 10)))
+            parse("\\b{1,"),
+            Err(Error::UnTerminatedError("{1,".to_string()))
         );
     }
 }
