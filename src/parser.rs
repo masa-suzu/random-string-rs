@@ -22,8 +22,8 @@ pub fn parse(s: &str) -> Result<Pattern, Error> {
 }
 
 fn parse_loop(s: &str) -> IResult<&str, Pattern> {
-    let (s, p) = parse_primitive(s)?;
-    let p = match p {
+    let (s, pattern) = parse_primitive(s)?;
+    let word = match pattern {
         Pattern::Word(w) => *w,
         _ => unreachable!(),
     };
@@ -40,10 +40,15 @@ fn parse_loop(s: &str) -> IResult<&str, Pattern> {
 
     let (s, _) = tag("}")(s)?;
 
-    Ok((
-        s,
-        Pattern::Loop(Box::new(p), from.parse().unwrap(), to.parse().unwrap()),
-    ))
+    let from = from.parse().unwrap();
+    let to = to.parse().unwrap();
+
+    if from > to {
+        // TODO: IResult<&str, Pattern>ではなくて、Result<Pattern, Error>を使う。
+        return Err(nom::Err::Error((s, nom::error::ErrorKind::Verify)));
+    }
+
+    Ok((s, Pattern::Loop(Box::new(word), from, to)))
 }
 
 fn parse_primitive(s: &str) -> IResult<&str, Pattern> {
@@ -127,6 +132,13 @@ mod tests {
         assert_eq!(
             parse("\\w{1,"),
             Err(Error::UnTerminatedError("{1,".to_string()))
+        );
+    }
+    #[test]
+    fn test_loop_error() {
+        assert_eq!(
+            parse("\\b{13,12}"),
+            Err(Error::UnTerminatedError("{13,12}".to_string()))
         );
     }
 }
