@@ -5,7 +5,7 @@ use random_string_rs::generator::generate;
 use random_string_rs::parser::{parse, Error};
 
 fn main() {
-    let mut seed = 0;
+    let mut seed = 514835;
 
     loop {
         let input = match try_read_from_stdin::<String>() {
