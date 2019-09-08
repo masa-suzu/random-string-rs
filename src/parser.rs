@@ -1,4 +1,4 @@
-use crate::regex::Pattern;
+use crate::regex::{ Primitive, Pattern};
 
 extern crate nom;
 use nom::{bytes::complete::tag, character::complete::digit1, IResult};
@@ -23,6 +23,10 @@ pub fn parse(s: &str) -> Result<Pattern, Error> {
 
 fn parse_loop(s: &str) -> IResult<&str, Pattern> {
     let (s, p) = parse_digit(s)?;
+    let p = match p {
+        Pattern::Word(w) => *w,
+        _ => unreachable!(),
+    };
 
     let (s, _) = tag("{")(s)?;
 
@@ -44,49 +48,49 @@ fn parse_loop(s: &str) -> IResult<&str, Pattern> {
 
 fn parse_digit(s: &str) -> IResult<&str, Pattern> {
     let (s, _) = tag("\\b")(s)?;
-    Ok((s, Pattern::Digit))
+    Ok((s, Pattern::Word(Box::new(Primitive::Digit))))
 }
 
 #[cfg(test)]
 mod tests {
     use crate::parser::parse;
     use crate::parser::Error;
-    use crate::regex::Pattern;
+    use crate::regex::{Primitive,Pattern};
 
     #[test]
     fn test_parse() {
-        assert_eq!(parse("\\b"), Ok(Pattern::Digit));
+        assert_eq!(parse("\\b"), Ok(Pattern::Word(Box::new(Primitive::Digit))));
 
         assert_eq!(
             parse("\\b{1}"),
-            Ok(Pattern::Loop(Box::new(Pattern::Digit), 1, 1))
+            Ok(Pattern::Loop(Box::new(Primitive::Digit), 1, 1))
         );
         assert_eq!(
             parse("\\b{10}"),
-            Ok(Pattern::Loop(Box::new(Pattern::Digit), 10, 10))
+            Ok(Pattern::Loop(Box::new(Primitive::Digit), 10, 10))
         );
         assert_eq!(
             parse("\\b{1,1}"),
-            Ok(Pattern::Loop(Box::new(Pattern::Digit), 1, 1))
+            Ok(Pattern::Loop(Box::new(Primitive::Digit), 1, 1))
         );
         assert_eq!(
             parse("\\b{7,10}"),
-            Ok(Pattern::Loop(Box::new(Pattern::Digit), 7, 10))
+            Ok(Pattern::Loop(Box::new(Primitive::Digit), 7, 10))
         );
 
         assert_eq!(
             parse("\\b{1}\r\n"),
-            Ok(Pattern::Loop(Box::new(Pattern::Digit), 1, 1))
+            Ok(Pattern::Loop(Box::new(Primitive::Digit), 1, 1))
         );
 
         assert_eq!(
             parse("\\b{1}\n"),
-            Ok(Pattern::Loop(Box::new(Pattern::Digit), 1, 1))
+            Ok(Pattern::Loop(Box::new(Primitive::Digit), 1, 1))
         );
 
         assert_eq!(
             parse("\\b{1}\r"),
-            Ok(Pattern::Loop(Box::new(Pattern::Digit), 1, 1))
+            Ok(Pattern::Loop(Box::new(Primitive::Digit), 1, 1))
         );
     }
 
