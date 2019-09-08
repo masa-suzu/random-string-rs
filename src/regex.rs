@@ -1,6 +1,7 @@
 #[derive(PartialEq, Clone, Debug)]
 pub enum Primitive {
     Digit,
+    Alphabetic,
 }
 
 #[derive(PartialEq, Clone, Debug)]

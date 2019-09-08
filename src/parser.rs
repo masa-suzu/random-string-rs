@@ -1,4 +1,4 @@
-use crate::regex::{ Primitive, Pattern};
+use crate::regex::{Pattern, Primitive};
 
 extern crate nom;
 use nom::{bytes::complete::tag, character::complete::digit1, IResult};
@@ -10,7 +10,7 @@ pub enum Error {
 }
 
 pub fn parse(s: &str) -> Result<Pattern, Error> {
-    match nom::branch::alt((parse_loop, parse_digit))(s) {
+    match nom::branch::alt((parse_loop, parse_primitive))(s) {
         Ok(("\r\n", p)) => Ok(p),
         Ok(("\n", p)) => Ok(p),
         Ok(("\r", p)) => Ok(p),
@@ -22,7 +22,7 @@ pub fn parse(s: &str) -> Result<Pattern, Error> {
 }
 
 fn parse_loop(s: &str) -> IResult<&str, Pattern> {
-    let (s, p) = parse_digit(s)?;
+    let (s, p) = parse_primitive(s)?;
     let p = match p {
         Pattern::Word(w) => *w,
         _ => unreachable!(),
@@ -46,20 +46,34 @@ fn parse_loop(s: &str) -> IResult<&str, Pattern> {
     ))
 }
 
-fn parse_digit(s: &str) -> IResult<&str, Pattern> {
+fn parse_primitive(s: &str) -> IResult<&str, Pattern> {
+    let (s, p) = nom::branch::alt((parse_digit, parse_alphabetic))(s)?;
+    Ok((s, Pattern::Word(Box::new(p))))
+}
+
+fn parse_digit(s: &str) -> IResult<&str, Primitive> {
     let (s, _) = tag("\\b")(s)?;
-    Ok((s, Pattern::Word(Box::new(Primitive::Digit))))
+    Ok((s, Primitive::Digit))
+}
+
+fn parse_alphabetic(s: &str) -> IResult<&str, Primitive> {
+    let (s, _) = tag("\\w")(s)?;
+    Ok((s, Primitive::Alphabetic))
 }
 
 #[cfg(test)]
 mod tests {
     use crate::parser::parse;
     use crate::parser::Error;
-    use crate::regex::{Primitive,Pattern};
+    use crate::regex::{Pattern, Primitive};
 
     #[test]
     fn test_parse() {
         assert_eq!(parse("\\b"), Ok(Pattern::Word(Box::new(Primitive::Digit))));
+        assert_eq!(
+            parse("\\w"),
+            Ok(Pattern::Word(Box::new(Primitive::Alphabetic)))
+        );
 
         assert_eq!(
             parse("\\b{1}"),
@@ -68,6 +82,10 @@ mod tests {
         assert_eq!(
             parse("\\b{10}"),
             Ok(Pattern::Loop(Box::new(Primitive::Digit), 10, 10))
+        );
+        assert_eq!(
+            parse("\\w{10}"),
+            Ok(Pattern::Loop(Box::new(Primitive::Alphabetic), 10, 10))
         );
         assert_eq!(
             parse("\\b{1,1}"),
@@ -104,6 +122,10 @@ mod tests {
         );
         assert_eq!(
             parse("\\b{1,"),
+            Err(Error::UnTerminatedError("{1,".to_string()))
+        );
+        assert_eq!(
+            parse("\\w{1,"),
             Err(Error::UnTerminatedError("{1,".to_string()))
         );
     }

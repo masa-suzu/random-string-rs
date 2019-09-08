@@ -3,6 +3,8 @@ use crate::regex::{Pattern, Primitive};
 use rand::{Rng, SeedableRng};
 use rand_xoshiro::Xoshiro256StarStar;
 
+use std::char::from_u32;
+
 pub fn generate(p: Pattern, seed: u64) -> String {
     let mut rng = Xoshiro256StarStar::seed_from_u64(seed);
     match p {
@@ -24,6 +26,7 @@ where
 {
     match p {
         Primitive::Digit => rng.gen_range(0, 9).to_string(),
+        Primitive::Alphabetic => from_u32(rng.gen_range(97, 122) as u32).unwrap().to_string(),
     }
 }
 
@@ -36,6 +39,10 @@ mod tests {
         assert_eq!(
             generate(Pattern::Word(Box::new(Primitive::Digit)), 100),
             "2"
+        );
+        assert_eq!(
+            generate(Pattern::Word(Box::new(Primitive::Alphabetic)), 100),
+            "f"
         );
         assert_eq!(
             generate(Pattern::Loop(Box::new(Primitive::Digit), 10, 10), 1),
