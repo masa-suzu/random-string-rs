@@ -71,7 +71,7 @@ fn parse_loop(s: &str) -> IResult<&str, Pattern> {
 }
 
 fn parse_primitive(s: &str) -> IResult<&str, Pattern> {
-    let (s, p) = nom::branch::alt((parse_digit, parse_alphabetic, parse_group))(s)?;
+    let (s, p) = nom::branch::alt((parse_digit, parse_alphabetic, parse_group, parse_char))(s)?;
     Ok((s, Pattern::Word(Box::new(p))))
 }
 
@@ -85,6 +85,18 @@ fn parse_group(s: &str) -> IResult<&str, Primitive> {
     Ok((s, Primitive::Group(Box::new(p))))
 }
 
+fn parse_char(s: &str) -> IResult<&str, Primitive> {
+    match nom::character::streaming::anychar(s) {
+        Ok((s, ch)) => {
+            if reserved(ch) {
+                return Err(nom::Err::Error((s, nom::error::ErrorKind::Verify)));
+            }
+            Ok((s, Primitive::Char(ch)))
+        }
+        Err(e) => Err(e),
+    }
+}
+
 fn parse_digit(s: &str) -> IResult<&str, Primitive> {
     let (s, _) = tag("\\b")(s)?;
     Ok((s, Primitive::Digit))
@@ -95,6 +107,13 @@ fn parse_alphabetic(s: &str) -> IResult<&str, Primitive> {
     Ok((s, Primitive::Alphabetic))
 }
 
+fn reserved(ch: char) -> bool {
+    match ch {
+        '\r' | '\n' | '(' | ')' | '{' | '}' => true,
+        _ => false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::parser::parse;
@@ -103,6 +122,16 @@ mod tests {
 
     #[test]
     fn test_parse() {
+        assert_eq!(
+            parse("b"),
+            Ok(Pattern::Word(Box::new(Primitive::Char('b'))))
+        );
+
+        assert_eq!(
+            parse("\\"),
+            Ok(Pattern::Word(Box::new(Primitive::Char('\\'))))
+        );
+
         assert_eq!(parse("\\b"), Ok(Pattern::Word(Box::new(Primitive::Digit))));
         assert_eq!(
             parse("\\w"),
@@ -161,8 +190,6 @@ mod tests {
 
     #[test]
     fn test_parse_error() {
-        assert_eq!(parse("\\"), Err(Error::UnTerminatedError("\\".to_string())));
-        assert_eq!(parse("b"), Err(Error::UnTerminatedError("b".to_string())));
         assert_eq!(
             parse("\\b{"),
             Err(Error::UnTerminatedError("{".to_string()))

@@ -1,5 +1,6 @@
 #[derive(PartialEq, Clone, Debug)]
 pub enum Primitive {
+    Char(char),
     Digit,
     Alphabetic,
     Group(Box<Pattern>),

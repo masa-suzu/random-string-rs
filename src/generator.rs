@@ -39,6 +39,7 @@ where
     T: Rng,
 {
     match p {
+        Primitive::Char(c) => c.to_string(),
         Primitive::Digit => rng.gen_range(0, 9).to_string(),
         Primitive::Alphabetic => from_u32(rng.gen_range(97, 122) as u32).unwrap().to_string(),
         Primitive::Group(p) => generate_from::<T>(*p, rng),
@@ -51,6 +52,10 @@ mod tests {
     use crate::regex::{Pattern, Primitive};
     #[test]
     fn test_generate() {
+        assert_eq!(
+            generate(Pattern::Word(Box::new(Primitive::Char('a'))), 100),
+            "a"
+        );
         assert_eq!(
             generate(Pattern::Word(Box::new(Primitive::Digit)), 100),
             "2"
