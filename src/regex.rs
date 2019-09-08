@@ -9,4 +9,5 @@ pub enum Primitive {
 pub enum Pattern {
     Word(Box<Primitive>),
     Loop(Box<Primitive>, u64, u64),
+    Sequence(Vec<Box<Pattern>>),
 }

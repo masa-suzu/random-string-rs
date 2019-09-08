@@ -26,6 +26,11 @@ where
             .collect::<Vec<String>>()
             .join("");
         }
+        Pattern::Sequence(seq) => seq
+            .into_iter()
+            .map(|p| generate_from(*p.clone(), rng))
+            .collect::<Vec<String>>()
+            .join(""),
     }
 }
 

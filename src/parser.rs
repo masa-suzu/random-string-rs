@@ -10,7 +10,7 @@ pub enum Error {
 }
 
 pub fn parse(s: &str) -> Result<Pattern, Error> {
-    match nom::branch::alt((parse_loop, parse_primitive))(s) {
+    match parse_sequence(s) {
         Ok(("\r\n", p)) => Ok(p),
         Ok(("\n", p)) => Ok(p),
         Ok(("\r", p)) => Ok(p),
@@ -18,6 +18,25 @@ pub fn parse(s: &str) -> Result<Pattern, Error> {
 
         Ok((s, _)) => Err(Error::UnTerminatedError(s.to_string())),
         _ => Err(Error::ParseError),
+    }
+}
+
+fn parse_sequence(s: &str) -> IResult<&str, Pattern> {
+    let mut vec = Vec::new();
+    let mut x = s;
+    loop {
+        match nom::branch::alt((parse_loop, parse_primitive))(x) {
+            Ok((s, p)) => {
+                x = s;
+                vec.push(Box::new(p));
+            }
+            Err(_) => {
+                if vec.len() == 1 {
+                    return Ok((x, *vec.pop().unwrap()));
+                }
+                return Ok((x, Pattern::Sequence(vec)));
+            }
+        }
     }
 }
 
@@ -59,7 +78,7 @@ fn parse_primitive(s: &str) -> IResult<&str, Pattern> {
 fn parse_group(s: &str) -> IResult<&str, Primitive> {
     let (s, _) = tag("(")(s)?;
 
-    let (s, p) = nom::branch::alt((parse_loop, parse_primitive))(s)?;
+    let (s, p) = parse_sequence(s)?;
 
     let (s, _) = tag(")")(s)?;
 
@@ -131,12 +150,19 @@ mod tests {
                 Pattern::Word(Box::new(Primitive::Digit))
             )))))
         );
+        assert_eq!(
+            parse("\\b\\w\r"),
+            Ok(Pattern::Sequence(vec![
+                Box::new(Pattern::Word(Box::new(Primitive::Digit))),
+                Box::new(Pattern::Word(Box::new(Primitive::Alphabetic))),
+            ]))
+        );
     }
 
     #[test]
     fn test_parse_error() {
-        assert_eq!(parse("\\"), Err(Error::ParseError));
-        assert_eq!(parse("b"), Err(Error::ParseError));
+        assert_eq!(parse("\\"), Err(Error::UnTerminatedError("\\".to_string())));
+        assert_eq!(parse("b"), Err(Error::UnTerminatedError("b".to_string())));
         assert_eq!(
             parse("\\b{"),
             Err(Error::UnTerminatedError("{".to_string()))
