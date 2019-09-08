@@ -1,7 +1,13 @@
 use crate::regex::{Pattern, Primitive};
 
 extern crate nom;
-use nom::{bytes::complete::tag, character::complete::digit1, IResult};
+use nom::{
+    bytes::complete::is_not,
+    bytes::complete::tag,
+    character::complete::{char, digit1},
+    sequence::delimited,
+    IResult,
+};
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum Error {
@@ -71,7 +77,13 @@ fn parse_loop(s: &str) -> IResult<&str, Pattern> {
 }
 
 fn parse_primitive(s: &str) -> IResult<&str, Pattern> {
-    let (s, p) = nom::branch::alt((parse_digit, parse_alphabetic, parse_group, parse_char))(s)?;
+    let (s, p) = nom::branch::alt((
+        parse_digit,
+        parse_alphabetic,
+        parse_group,
+        parse_alt,
+        parse_char,
+    ))(s)?;
     Ok((s, Pattern::Word(Box::new(p))))
 }
 
@@ -83,6 +95,12 @@ fn parse_group(s: &str) -> IResult<&str, Primitive> {
     let (s, _) = tag(")")(s)?;
 
     Ok((s, Primitive::Group(Box::new(p))))
+}
+
+fn parse_alt(s: &str) -> IResult<&str, Primitive> {
+    let (s, x) = delimited(char('['), is_not("]"), char(']'))(s)?;
+
+    Ok((s, Primitive::Alt(x.to_string())))
 }
 
 fn parse_char(s: &str) -> IResult<&str, Primitive> {
@@ -109,7 +127,7 @@ fn parse_alphabetic(s: &str) -> IResult<&str, Primitive> {
 
 fn reserved(ch: char) -> bool {
     match ch {
-        '\r' | '\n' | '(' | ')' | '{' | '}' => true,
+        '\r' | '\n' | '(' | ')' | '{' | '}' | '[' | ']' => true,
         _ => false,
     }
 }
@@ -185,6 +203,16 @@ mod tests {
                 Box::new(Pattern::Word(Box::new(Primitive::Digit))),
                 Box::new(Pattern::Word(Box::new(Primitive::Alphabetic))),
             ]))
+        );
+        assert_eq!(
+            parse("[123]"),
+            Ok(Pattern::Word(Box::new(Primitive::Alt("123".to_string()))))
+        );
+        assert_eq!(
+            parse("[ああ]"),
+            Ok(Pattern::Word(Box::new(Primitive::Alt(
+                "ああ".to_string()
+            ))))
         );
     }
 

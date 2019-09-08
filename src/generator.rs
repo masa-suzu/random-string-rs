@@ -43,6 +43,21 @@ where
         Primitive::Digit => rng.gen_range(0, 9).to_string(),
         Primitive::Alphabetic => from_u32(rng.gen_range(97, 122) as u32).unwrap().to_string(),
         Primitive::Group(p) => generate_from::<T>(*p, rng),
+        Primitive::Alt(s) => {
+            let v: Vec<char> = s.chars().collect();
+
+            let n = v.len();
+            if 0 == n {
+                return "".to_string();
+            };
+
+            if 1 == n {
+                return s;
+            }
+            let x = rng.gen_range(0, n);
+
+            v[x].to_string()
+        }
     }
 }
 
@@ -88,6 +103,20 @@ mod tests {
                 10202
             ),
             "wyi"
+        );
+        assert_eq!(
+            generate(
+                Pattern::Loop(Box::new(Primitive::Alt("123".to_string())), 4, 5),
+                1021
+            ),
+            "2331"
+        );
+        assert_eq!(
+            generate(
+                Pattern::Loop(Box::new(Primitive::Alt("あ".to_string())), 1, 1),
+                1021
+            ),
+            "あ"
         );
     }
 }
