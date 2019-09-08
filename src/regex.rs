@@ -2,6 +2,7 @@
 pub enum Primitive {
     Digit,
     Alphabetic,
+    Group(Box<Pattern>),
 }
 
 #[derive(PartialEq, Clone, Debug)]

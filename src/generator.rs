@@ -7,16 +7,25 @@ use std::char::from_u32;
 
 pub fn generate(p: Pattern, seed: u64) -> String {
     let mut rng = Xoshiro256StarStar::seed_from_u64(seed);
+    generate_from::<Xoshiro256StarStar>(p, &mut rng)
+}
+
+fn generate_from<T>(p: Pattern, rng: &mut T) -> String
+where
+    T: Rng,
+{
     match p {
-        Pattern::Word(w) => generate_word::<Xoshiro256StarStar>(*w, &mut rng),
-        Pattern::Loop(_, from, to) => if from != to {
-            (0..rng.gen_range(from, to + 1))
-        } else {
-            (0..from)
+        Pattern::Word(w) => generate_word::<T>(*w, rng),
+        Pattern::Loop(primitive, from, to) => {
+            return if from != to {
+                (0..rng.gen_range(from, to + 1))
+            } else {
+                (0..from)
+            }
+            .map(|_| generate_word(*primitive.clone(), rng))
+            .collect::<Vec<String>>()
+            .join("");
         }
-        .map(|_| rng.gen_range(0, 9).to_string())
-        .collect::<Vec<String>>()
-        .join(""),
     }
 }
 
@@ -27,6 +36,7 @@ where
     match p {
         Primitive::Digit => rng.gen_range(0, 9).to_string(),
         Primitive::Alphabetic => from_u32(rng.gen_range(97, 122) as u32).unwrap().to_string(),
+        Primitive::Group(p) => generate_from::<T>(*p, rng),
     }
 }
 
@@ -55,6 +65,19 @@ mod tests {
         assert_eq!(
             generate(Pattern::Loop(Box::new(Primitive::Digit), 1, 10), 10202),
             "8582722"
+        );
+        assert_eq!(
+            generate(
+                Pattern::Loop(
+                    Box::new(Primitive::Group(Box::new(Pattern::Word(Box::new(
+                        Primitive::Alphabetic
+                    ))))),
+                    3,
+                    3
+                ),
+                10202
+            ),
+            "wyi"
         );
     }
 }

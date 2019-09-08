@@ -52,8 +52,18 @@ fn parse_loop(s: &str) -> IResult<&str, Pattern> {
 }
 
 fn parse_primitive(s: &str) -> IResult<&str, Pattern> {
-    let (s, p) = nom::branch::alt((parse_digit, parse_alphabetic))(s)?;
+    let (s, p) = nom::branch::alt((parse_digit, parse_alphabetic, parse_group))(s)?;
     Ok((s, Pattern::Word(Box::new(p))))
+}
+
+fn parse_group(s: &str) -> IResult<&str, Primitive> {
+    let (s, _) = tag("(")(s)?;
+
+    let (s, p) = nom::branch::alt((parse_loop, parse_primitive))(s)?;
+
+    let (s, _) = tag(")")(s)?;
+
+    Ok((s, Primitive::Group(Box::new(p))))
 }
 
 fn parse_digit(s: &str) -> IResult<&str, Primitive> {
@@ -114,6 +124,12 @@ mod tests {
         assert_eq!(
             parse("\\b{1}\r"),
             Ok(Pattern::Loop(Box::new(Primitive::Digit), 1, 1))
+        );
+        assert_eq!(
+            parse("(\\b)\r"),
+            Ok(Pattern::Word(Box::new(Primitive::Group(Box::new(
+                Pattern::Word(Box::new(Primitive::Digit))
+            )))))
         );
     }
 
