@@ -88,11 +88,22 @@ fn parse_primitive(s: &str) -> IResult<&str, Pattern> {
     let (s, p) = nom::branch::alt((
         parse_digit,
         parse_alphabetic,
+        parse_or,
         parse_group,
         parse_alt,
         parse_char,
     ))(s)?;
     Ok((s, Pattern::Word(Box::new(p))))
+}
+
+fn parse_or(s: &str) -> IResult<&str, Primitive> {
+    let (s, _) = tag("(")(s)?;
+    let (s, a) = parse_sequence(s)?;
+    let (s, _) = tag("|")(s)?;
+    let (s, b) = parse_sequence(s)?;
+    let (s, _) = tag(")")(s)?;
+
+    Ok((s, Primitive::Or(Box::new(a), Box::new(b))))
 }
 
 fn parse_group(s: &str) -> IResult<&str, Primitive> {
@@ -135,7 +146,7 @@ fn parse_alphabetic(s: &str) -> IResult<&str, Primitive> {
 
 fn reserved(ch: char) -> bool {
     match ch {
-        '\r' | '\n' | '(' | ')' | '{' | '}' | '[' | ']' => true,
+        '\r' | '\n' | '(' | ')' | '{' | '}' | '[' | ']' | '|' => true,
         _ => false,
     }
 }
@@ -229,6 +240,23 @@ mod tests {
         assert_eq!(
             parse("\\b+\r"),
             Ok(Pattern::Loop(Box::new(Primitive::Digit), 1, 100))
+        );
+        assert_eq!(
+            parse("(\\b|\\w)"),
+            Ok(Pattern::Word(Box::new(Primitive::Or(
+                Box::new(Pattern::Word(Box::new(Primitive::Digit))),
+                Box::new(Pattern::Word(Box::new(Primitive::Alphabetic))),
+            ))))
+        );
+        assert_eq!(
+            parse("(\\b|10)"),
+            Ok(Pattern::Word(Box::new(Primitive::Or(
+                Box::new(Pattern::Word(Box::new(Primitive::Digit))),
+                Box::new(Pattern::Sequence(vec![
+                    Box::new(Pattern::Word(Box::new(Primitive::Char('1')))),
+                    Box::new(Pattern::Word(Box::new(Primitive::Char('0')))),
+                ])),
+            ))))
         );
     }
 

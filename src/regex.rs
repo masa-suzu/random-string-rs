@@ -5,6 +5,7 @@ pub enum Primitive {
     Alphabetic,
     Group(Box<Pattern>),
     Alt(String),
+    Or(Box<Pattern>, Box<Pattern>),
 }
 
 #[derive(PartialEq, Clone, Debug)]

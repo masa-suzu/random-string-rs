@@ -58,6 +58,10 @@ where
 
             v[x].to_string()
         }
+        Primitive::Or(a, b) => match rng.gen_bool(0.5) {
+            true => generate_from(*a, rng),
+            false => generate_from(*b, rng),
+        },
     }
 }
 
@@ -117,6 +121,16 @@ mod tests {
                 1021
             ),
             "あ"
+        );
+        assert_eq!(
+            generate(
+                Pattern::Word(Box::new(Primitive::Or(
+                    Box::new(Pattern::Word(Box::new(Primitive::Digit))),
+                    Box::new(Pattern::Word(Box::new(Primitive::Alphabetic))),
+                ))),
+                101
+            ),
+            "4"
         );
     }
 }
