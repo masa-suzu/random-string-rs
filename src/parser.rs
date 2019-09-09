@@ -57,6 +57,10 @@ fn parse_loop(s: &str) -> IResult<&str, Pattern> {
         return Ok((s, Pattern::Loop(Box::new(word), 0, 100)));
     };
 
+    if let Ok((s, _)) = tag::<&str, &str, (&str, nom::error::ErrorKind)>("+")(s) {
+        return Ok((s, Pattern::Loop(Box::new(word), 1, 100)));
+    };
+
     let (s, _) = tag("{")(s)?;
 
     let (s, from) = digit1(s)?;
@@ -221,6 +225,10 @@ mod tests {
         assert_eq!(
             parse("\\b*\r"),
             Ok(Pattern::Loop(Box::new(Primitive::Digit), 0, 100))
+        );
+        assert_eq!(
+            parse("\\b+\r"),
+            Ok(Pattern::Loop(Box::new(Primitive::Digit), 1, 100))
         );
     }
 
